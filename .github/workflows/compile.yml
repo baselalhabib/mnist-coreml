@@ -1,0 +1,53 @@
+name: Compile Core ML Model
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install coremltools
+        run: pip install coremltools==7.2
+
+      - name: Compile .mlpackage to .mlmodelc
+        run: |
+          python3 - <<'EOF'
+          import coremltools as ct
+          import shutil, os
+
+          print("Loading model...")
+          model = ct.models.MLModel("MNISTNet.mlpackage")
+
+          print("Compiling...")
+          compiled_path = model.get_compiled_model_path()
+          print(f"Compiled at: {compiled_path}")
+
+          if os.path.exists("MNISTNet.mlmodelc"):
+              shutil.rmtree("MNISTNet.mlmodelc")
+
+          shutil.copytree(compiled_path, "MNISTNet.mlmodelc")
+          print("Contents:", os.listdir("MNISTNet.mlmodelc"))
+          print("✅ Done!")
+          EOF
+
+      - name: Zip .mlmodelc
+        run: zip -r MNISTNet.mlmodelc.zip MNISTNet.mlmodelc
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MNISTNet-mlmodelc
+          path: MNISTNet.mlmodelc.zip
+          retention-days: 7
